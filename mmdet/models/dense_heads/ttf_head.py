@@ -2,15 +2,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import normal_init, kaiming_init, build_norm_layer, ConvModule, bias_init_with_prob
+
 import numpy as np
 
-from mmdet.ops import ModulatedDeformConvPack
+from mmcv.ops import ModulatedDeformConv2dPack
+# from mmdet.ops import ModulatedDeformConvPack
 from mmdet.core import multi_apply, bbox_areas, force_fp32
 from mmdet.core.anchor import calc_region
 from mmdet.models.losses import ct_focal_loss, GIoULoss
 # from mmdet.models.utils import (build_norm_layer, bias_init_with_prob, ConvModule)
-from mmdet.ops import simple_nms
-from mmdet.models import AnchorHead, HEADS
+from mmdet.ops.nms import simple_nms
+from ..dense_heads import AnchorHead
+from ..builder import HEADS
+
 # from anchor_head import AnchorHead
 # from ..registry import HEADS
 
@@ -102,7 +106,7 @@ class TTFHead(AnchorHead):
         return shortcut_layers
 
     def build_upsample(self, inplanes, planes, norm_cfg=None):
-        mdcn = ModulatedDeformConvPack(inplanes, planes, 3, stride=1,
+        mdcn = ModulatedDeformConv2dPack(inplanes, planes, 3, stride=1,
                                        padding=1, dilation=1, deformable_groups=1)
         up = nn.UpsamplingBilinear2d(scale_factor=2)
 
@@ -462,7 +466,9 @@ class TTFHead(AnchorHead):
                                 self.base_loc + pred_wh[:, [2, 3]]), dim=1).permute(0, 2, 3, 1)
         # (batch, h, w, 4)
         boxes = box_target.permute(0, 2, 3, 1)
-        wh_loss = giou_loss(pred_boxes, boxes, mask, avg_factor=avg_factor) * self.wh_weight
+        giou_loss = GIoULoss(wh_weight=self.wh_weight)
+        wh_loss = GIoULoss(pred_boxes, boxes, mask, avg_factor=avg_factor)
+        # wh_loss = giou_loss(pred_boxes, boxes, mask, avg_factor=avg_factor) * self.wh_weight
 
         return hm_loss, wh_loss
 
