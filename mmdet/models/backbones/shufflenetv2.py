@@ -67,7 +67,7 @@ class ShuffleV2Block(nn.Module):
 
 @BACKBONES.register_module
 class ShuffleNetV2(nn.Module):
-    def __init__(self, stage_out_channels, load_param, all_output=False, data_channel=3):
+    def __init__(self, stage_out_channels, load_param, all_output=False, data_channel=3, yolo_af=False):
         super(ShuffleNetV2, self).__init__()
 
         self.stage_repeats = [4, 8, 4]
@@ -99,6 +99,7 @@ class ShuffleNetV2(nn.Module):
             setattr(self, stage_names[idxstage], nn.Sequential(*stageSeq))
 
         self.all_output = all_output
+        self.yolo_af = yolo_af
         if load_param == False:
             self._initialize_weights()
         else:
@@ -110,6 +111,9 @@ class ShuffleNetV2(nn.Module):
         C1 = self.stage2(x)
         C2 = self.stage3(C1)
         C3 = self.stage4(C2)
+
+        if self.yolo_af:
+            return [x, C1, C2, C3]
 
         if self.all_output:
             return C2, C3, x, C1

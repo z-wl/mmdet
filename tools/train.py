@@ -5,6 +5,7 @@ import os
 import os.path as osp
 import time
 import warnings
+from email.policy import default
 
 import mmcv
 import torch
@@ -20,11 +21,14 @@ from mmdet.models import build_detector
 from mmdet.utils import (collect_env, get_device, get_root_logger,
                          replace_cfg_vals, setup_multi_processes,
                          update_data_root)
+from numpy.random import shuffle
 
 
 def parse_args():
+    ttf=r'E:\bupt\code\mmdet\mmdet\configs\ttfnet\ttfnet_d53_1x.py'
+    yolof=r'E:\bupt\code\mmdet\mmdet\configs\yolo_af\yolo_af_sf.py'
     parser = argparse.ArgumentParser(description='Train a detector')
-    parser.add_argument('config', help='train config file path')
+    parser.add_argument('--config', default=yolof, help='train config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
@@ -235,7 +239,8 @@ def main():
         distributed=distributed,
         validate=(not args.no_validate),
         timestamp=timestamp,
-        meta=meta)
+        meta=meta,
+    )
 
 
 if __name__ == '__main__':

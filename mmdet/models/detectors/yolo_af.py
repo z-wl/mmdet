@@ -1,10 +1,9 @@
-# from .single_stage import SingleStageDetector
 from mmdet.models.detectors import SingleStageDetector
 from mmdet.models import DETECTORS
 
 
 @DETECTORS.register_module()
-class TTFNet(SingleStageDetector):
+class YOLOAF(SingleStageDetector):
 
     def __init__(self,
                  backbone,
@@ -13,5 +12,5 @@ class TTFNet(SingleStageDetector):
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None):
-        super(TTFNet, self).__init__(backbone, neck, bbox_head, train_cfg,
+        super(YOLOAF, self).__init__(backbone, neck, bbox_head, train_cfg,
                                      test_cfg, init_cfg=init_cfg)

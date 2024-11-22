@@ -214,6 +214,7 @@ class Resize:
 
     def _resize_img(self, results):
         """Resize images with ``results['scale']``."""
+        # print('coco raw data', results)
         for key in results.get('img_fields', ['img']):
             if self.keep_ratio:
                 img, scale_factor = mmcv.imrescale(
@@ -293,7 +294,7 @@ class Resize:
             dict: Resized results, 'img_shape', 'pad_shape', 'scale_factor', \
                 'keep_ratio' keys are added into result dict.
         """
-
+        # print('raw res', results)
         if 'scale' not in results:
             if 'scale_factor' in results:
                 img_shape = results['img'].shape[:2]
@@ -704,6 +705,7 @@ class Normalize:
                 result dict.
         """
         for key in results.get('img_fields', ['img']):
+            # print('what', type(results[key]), results[key].shape)
             results[key] = mmcv.imnormalize(results[key], self.mean, self.std,
                                             self.to_rgb)
         results['img_norm_cfg'] = dict(

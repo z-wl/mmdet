@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os
 import random
+from random import shuffle
 
 import numpy as np
 import torch
@@ -138,6 +139,7 @@ def train_detector(model,
         num_gpus=len(cfg.gpu_ids),
         dist=distributed,
         seed=cfg.seed,
+        shuffle=cfg.data.get('shuffle', True),
         runner_type=runner_type,
         persistent_workers=False)
 

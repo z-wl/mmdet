@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .brick_wrappers import AdaptiveAvgPool2d, adaptive_avg_pool2d
-from .builder import build_linear_layer, build_transformer
+from .builder import build_linear_layer, build_transformer, build_norm_layer
 from .ckpt_convert import pvt_convert
 from .conv_upsample import ConvUpsample
 from .csp_layer import CSPLayer
@@ -23,7 +23,7 @@ from .transformer import (DetrTransformerDecoder, DetrTransformerDecoderLayer,
 __all__ = [
     'ResLayer', 'gaussian_radius', 'gen_gaussian_target',
     'DetrTransformerDecoderLayer', 'DetrTransformerDecoder', 'Transformer',
-    'build_transformer', 'build_linear_layer', 'SinePositionalEncoding',
+    'build_transformer', 'build_linear_layer', 'build_norm_layer', 'SinePositionalEncoding',
     'LearnedPositionalEncoding', 'DynamicConv', 'SimplifiedBasicBlock',
     'NormedLinear', 'NormedConv2d', 'make_divisible', 'InvertedResidual',
     'SELayer', 'interpolate_as', 'ConvUpsample', 'CSPLayer',

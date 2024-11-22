@@ -9,10 +9,10 @@ from mmcv.ops import ModulatedDeformConv2dPack
 # from mmdet.ops import ModulatedDeformConvPack
 from mmdet.core import multi_apply, bbox_areas, force_fp32
 from mmdet.core.anchor import calc_region
-from mmdet.models.losses import ct_focal_loss, GIoULoss
+from mmdet.models.losses import ct_focal_loss, GIoULoss, giou_loss_fn
 # from mmdet.models.utils import (build_norm_layer, bias_init_with_prob, ConvModule)
 from mmdet.ops.nms import simple_nms
-from ..dense_heads import AnchorHead
+from ..dense_heads import AnchorHead, AnchorFreeHead
 from ..builder import HEADS
 
 # from anchor_head import AnchorHead
@@ -20,7 +20,7 @@ from ..builder import HEADS
 
 
 @HEADS.register_module
-class TTFHead(AnchorHead):
+class TTFHead(AnchorFreeHead):
 
     def __init__(self,
                  inplanes=(64, 128, 256, 512),
@@ -43,8 +43,12 @@ class TTFHead(AnchorHead):
                  beta=0.54,
                  hm_weight=1.,
                  wh_weight=5.,
-                 max_objs=128):
-        super(AnchorHead, self).__init__()
+                 max_objs=128,
+                 init_cfg=None,
+                 train_cfg=None,
+                 test_cfg=None,
+                 ):
+        super(AnchorFreeHead, self).__init__(init_cfg)
         assert len(planes) in [2, 3, 4]
         shortcut_num = min(len(inplanes) - 1, len(planes))
         assert shortcut_num == len(shortcut_cfg)
@@ -83,6 +87,10 @@ class TTFHead(AnchorHead):
         self.shortcut_layers = self.build_shortcut(
             inplanes[:-1][::-1][:shortcut_num], planes[:shortcut_num], shortcut_cfg,
             kernel_size=shortcut_kernel, padding=padding)
+
+        # Didnt activate yet
+        if train_cfg or test_cfg:
+            pass
 
         # heads
         self.wh = self.build_head(self.wh_planes, wh_head_conv_num, wh_conv)
@@ -241,9 +249,8 @@ class TTFHead(AnchorHead):
              gt_bboxes,
              gt_labels,
              img_metas,
-             cfg,
              gt_bboxes_ignore=None):
-        all_targets = self.target_generator(gt_bboxes, gt_labels, img_metas)
+        all_targets = self.get_targets(gt_bboxes, gt_labels, img_metas)
         hm_loss, wh_loss = self.loss_calc(pred_heatmap, pred_wh, *all_targets)
         return {'losses/ttfnet_loss_heatmap': hm_loss, 'losses/ttfnet_loss_wh': wh_loss}
 
@@ -270,12 +277,12 @@ class TTFHead(AnchorHead):
     def gaussian_2d(self, shape, sigma_x=1, sigma_y=1):
         m, n = [(ss - 1.) / 2. for ss in shape]
         y, x = np.ogrid[-m:m + 1, -n:n + 1]
-
         h = np.exp(-(x * x / (2 * sigma_x * sigma_x) + y * y / (2 * sigma_y * sigma_y)))
         h[h < np.finfo(h.dtype).eps * h.max()] = 0
         return h
 
     def draw_truncate_gaussian(self, heatmap, center, h_radius, w_radius, k=1):
+
         h, w = 2 * h_radius + 1, 2 * w_radius + 1
         sigma_x = w / 6
         sigma_y = h / 6
@@ -363,7 +370,6 @@ class TTFHead(AnchorHead):
         # larger boxes have lower priority than small boxes.
         for k in range(boxes_ind.shape[0]):
             cls_id = gt_labels[k] - 1
-
             fake_heatmap = fake_heatmap.zero_()
             self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
                                         h_radiuses_alpha[k].item(), w_radiuses_alpha[k].item())
@@ -398,7 +404,7 @@ class TTFHead(AnchorHead):
 
         return heatmap, box_target, reg_weight
 
-    def target_generator(self, gt_boxes, gt_labels, img_metas):
+    def get_targets(self, gt_boxes, gt_labels, img_metas):
         """
 
         Args:
@@ -466,8 +472,8 @@ class TTFHead(AnchorHead):
                                 self.base_loc + pred_wh[:, [2, 3]]), dim=1).permute(0, 2, 3, 1)
         # (batch, h, w, 4)
         boxes = box_target.permute(0, 2, 3, 1)
-        giou_loss = GIoULoss(wh_weight=self.wh_weight)
-        wh_loss = GIoULoss(pred_boxes, boxes, mask, avg_factor=avg_factor)
+        # giou_loss = GIoULoss(loss_weight=self.wh_weight)
+        wh_loss = giou_loss_fn(pred_boxes, boxes, mask, avg_factor=avg_factor) * self.wh_weight
         # wh_loss = giou_loss(pred_boxes, boxes, mask, avg_factor=avg_factor) * self.wh_weight
 
         return hm_loss, wh_loss

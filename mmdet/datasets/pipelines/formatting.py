@@ -203,7 +203,7 @@ class DefaultFormatBundle:
         self.img_to_float = img_to_float
         self.pad_val = pad_val
 
-    def __call__(self, results):
+    def __call__(self, results, yolo_af=False):
         """Call function to transform and format common fields in results.
 
         Args:
@@ -216,6 +216,7 @@ class DefaultFormatBundle:
 
         if 'img' in results:
             img = results['img']
+            # print('img:', img)
             if self.img_to_float is True and img.dtype == np.uint8:
                 # Normally, image is of uint8 type without normalization.
                 # At this time, it needs to be forced to be converted to
@@ -224,15 +225,24 @@ class DefaultFormatBundle:
                 img = img.astype(np.float32)
             # add default meta keys
             results = self._add_default_meta_keys(results)
+
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
-            img = np.ascontiguousarray(img.transpose(2, 0, 1))
+            if len(img.shape) == 4:
+                img = np.ascontiguousarray(img.transpose(0, 3, 1, 2))
+            else:
+                img = np.ascontiguousarray(img.transpose(2, 0, 1))
             results['img'] = DC(
                 to_tensor(img), padding_value=self.pad_val['img'], stack=True)
+
         for key in ['proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels']:
             if key not in results:
                 continue
-            results[key] = DC(to_tensor(results[key]))
+            if yolo_af:
+                results[key] = DC([to_tensor(ts) for ts in results[key]], stack=True)
+            else:
+                results[key] = DC(to_tensor(results[key]))
+        # print('here2?', results)
         if 'gt_masks' in results:
             results['gt_masks'] = DC(
                 results['gt_masks'],
@@ -339,6 +349,7 @@ class Collect:
 
         data = {}
         img_meta = {}
+        # print('collect', results)
         for key in self.meta_keys:
             img_meta[key] = results[key]
         data['img_metas'] = DC(img_meta, cpu_only=True)
