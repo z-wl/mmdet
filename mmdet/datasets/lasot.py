@@ -129,6 +129,17 @@ class LaSOT(CustomDataset):
         #     if not (self.proposal_file is None
         #             or osp.isabs(self.proposal_file)):
         #         self.proposal_file = osp.join(self.root_dir, self.proposal_file)
+        if not self.test_mode:
+            self._set_group_flag()
+
+    def _set_group_flag(self):
+        self.flag = np.zeros(len(self), dtype=np.uint8)
+        for i in range(len(self)):
+            video_index, _, _ = self.get_inner_index(i)
+            img_shape = self.get_img_shape(i, video_index)
+            # print('here', img_shape)
+            if img_shape[1] / img_shape[0] > 1:
+                self.flag[i] = 1
 
     def compute_batch_num(self):
         print(self.seq_dirs)
@@ -200,7 +211,6 @@ class LaSOT(CustomDataset):
         # labels = np.full((inner_batch_size,), cls, dtype=float32)
         # 正则化box，添加class标签。(cls, x, y, w, h)
         img_shape = self.get_img_shape(index, video_index)
-
         # anno_norm = np.zeros((inner_batch_size, 6))
         bbox_ = np.zeros((inner_batch_size, 4))
         if self.gt_format == 'coco':
