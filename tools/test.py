@@ -22,10 +22,12 @@ from mmdet.utils import (build_ddp, build_dp, compat_cfg, get_device,
 
 
 def parse_args():
+    ttf=r'E:\bupt\code\mmdet\mmdet\configs\ttfnet\ttfnet_d53_1x.py'
+    yolof=r'E:\bupt\code\mmdet\mmdet\configs\yolo_af\yolo_af_sf.py'
     parser = argparse.ArgumentParser(
         description='MMDet test (and eval) a model')
-    parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--config', default=yolof, help='test config file path')
+    parser.add_argument('--checkpoint', default=None, help='checkpoint file')
     parser.add_argument(
         '--work-dir',
         help='the directory to save the file containing evaluation metrics')
@@ -57,6 +59,7 @@ def parse_args():
         '--eval',
         type=str,
         nargs='+',
+        default='mAP',
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC')
     parser.add_argument('--show', action='store_true', help='show results')
@@ -223,15 +226,15 @@ def main():
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
-    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
+    # checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if args.fuse_conv_bn:
         model = fuse_conv_bn(model)
     # old versions did not save class info in checkpoints, this walkaround is
     # for backward compatibility
-    if 'CLASSES' in checkpoint.get('meta', {}):
-        model.CLASSES = checkpoint['meta']['CLASSES']
-    else:
-        model.CLASSES = dataset.CLASSES
+    # if 'CLASSES' in checkpoint.get('meta', {}):
+    #     model.CLASSES = checkpoint['meta']['CLASSES']
+    # else:
+    #     model.CLASSES = dataset.CLASSES
 
     if not distributed:
         model = build_dp(model, cfg.device, device_ids=cfg.gpu_ids)

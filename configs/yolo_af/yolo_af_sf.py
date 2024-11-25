@@ -1,12 +1,13 @@
 # model settings
 model = dict(
     type='YOLOAF',
+    use_fft=True,
     backbone=dict(
         type='ShuffleNetV2',
         stage_out_channels=[-1, 24, 48, 96, 192],
         load_param=False,
         all_output=True,
-        data_channel=3,
+        data_channel=4,
         yolo_af=True
     ),
     neck=None,
@@ -17,7 +18,7 @@ model = dict(
         wh_conv=32,
         hm_head_conv_num=2,
         wh_head_conv_num=2,
-        num_classes=81,
+        num_classes=7,
         wh_offset_base=16,
         wh_agnostic=True,
         wh_gaussian=True,
@@ -53,36 +54,40 @@ test_pipeline = [
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=False),
-            dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32),
             dict(type='ImageToTensor', keys=['img']),
             dict(type='Collect', keys=['img'], meta_keys=['filename','ori_shape',
-                            'img_shape', 'img_norm_cfg', 'pad_shape']),
+                            'img_shape', 'img_norm_cfg', 'pad_shape', 'scale_factor']),
         ])
 ]
 data = dict(
     samples_per_gpu=1,
     workers_per_gpu=2,
-    shuffle=False,
+    shuffle=True,
     train=dict(
         type=dataset_type,
         root_dir=data_root,
-        subset='train',
+        split_file='lasot_sub2.json',
+        subset='val',
         batch_size=48,
+        test_mode=False,
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         root_dir=data_root,
+        split_file='lasot_sub2.json',
         subset='val',
-        batch_size=32,
-        pipeline=train_pipeline),
+        batch_size=1,
+        test_mode=True,
+        pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
+        split_file='lasot_sub2.json',
         root_dir=data_root,
-        subset='test',
-        batch_size=32,
-        pipeline=train_pipeline))
+        subset='val',
+        batch_size=1,
+        test_mode=True,
+        pipeline=test_pipeline))
 # optimizer
 optimizer = dict(type='SGD', lr=0.015, momentum=0.9, weight_decay=0.0004,
                  paramwise_cfg=dict(bias_lr_mult=2., bias_decay_mult=0.))

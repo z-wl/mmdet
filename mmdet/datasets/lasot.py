@@ -229,10 +229,20 @@ class LaSOT(CustomDataset):
             bbox_[:, 2] /= img_shape[1]
             bbox_[:, 3] /= img_shape[0]
 
+        if self.test_mode:
+            return {'bboxes': np.stack(bbox_), 'labels': np.full((len(bbox_),), cls, dtype=np.int64)}
         return [{'bboxes': np.expand_dims(bbox, axis=0), 'labels': np.full((1,), cls, dtype=np.int64)} for bbox in bbox_]
 
     def __len__(self):
         return self.batches_num
+
+    def prepare_train_img(self, index):
+        assert not self.test_mode
+        return self.prepare_img(index)
+
+    def prepare_test_img(self, index):
+        assert self.test_mode
+        return self.prepare_img(index)
 
     def prepare_img(self, index):
         # seq_names = getattr(self, f'{split}_seq_names')
@@ -254,40 +264,60 @@ class LaSOT(CustomDataset):
             # imgs.append(cv2.resize(cv2.imread(img_path), (self.height, self.width)))
             imgs.append(cv2.imread(img_path))
 
-        anno = self.get_ann_info(index)
+        anno = self.get_ann_info(index) if not self.test_mode else None
         # print('anno:', anno)
         img_shape = self.get_img_shape(index, video_index)
         img_meta_list = []
         gt_bboxes_list = []
         gt_labels_list = []
         img_list = []
-        for name, img_, anno_ in zip(img_files, imgs, anno):
-            # imgs = np.stack(imgs)
-            # print('shape:', img_shape, self.width, self.height)
+        def pack_res(name, img_, anno_):
             results = dict(
                 filename=name,
                 ori_shape=img_shape,
                 img=img_,
-                gt_bboxes=anno_['bboxes'],
-                gt_labels=anno_['labels'],
-                anno_info=anno_)
+                gt_bboxes=anno_['bboxes'] if not self.test_mode else None,
+                gt_labels=anno_['labels'] if not self.test_mode else None,
+                anno_info=anno_ if not self.test_mode else None)
 
             self.pre_pipeline(results)
             results = self.pipeline(results)
             # print('res1', results)
             img_meta_list.append(results['img_metas'])
-            gt_bboxes_list.append(results['gt_bboxes'])
-            gt_labels_list.append(results['gt_labels'])
             img_list.append(results['img'])
-        bd = DefaultFormatBundle()
+            if not self.test_mode:
+                gt_bboxes_list.append(results['gt_bboxes'])
+                gt_labels_list.append(results['gt_labels'])
 
-        results = dict(img_metas=DataContainer([meta.data for meta in img_meta_list], cpu_only=True, yolo_af=True), gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list, img=np.stack(img_list))
-        # print('res1：', results)
-        results = bd(results, yolo_af=True)
-        # results = collect(results)
+        # for name, img_, anno_ in zip(img_files, imgs, anno):
+        #     pack_res(name, img_, anno_)
+        # results = dict(img_metas=DataContainer([meta.data for meta in img_meta_list], cpu_only=True, yolo_af=True),
+        #                gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list, img=np.stack(img_list))
+        # bd = DefaultFormatBundle()
+        # results = bd(results, yolo_af=True)
+        # return dict(img_metas=results['img_metas'], gt_bboxes=results['gt_bboxes'], gt_labels=results['gt_labels'],
+        #      img=results['img'])
 
-        # print('res2：', results)
-        return dict(img_metas=results['img_metas'], gt_bboxes=results['gt_bboxes'], gt_labels=results['gt_labels'], img=results['img'])
+        if not self.test_mode:
+            for name, img_, anno_ in zip(img_files, imgs, anno):
+                pack_res(name, img_, anno_)
+            results = dict(img_metas=DataContainer([meta.data for meta in img_meta_list], cpu_only=True, yolo_af=True),
+                           gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list, img=np.stack(img_list))
+        else:
+            for name, img_ in zip(img_files, imgs):
+                pack_res(name, img_, None)
+            results = dict(img_metas=[meta for meta in img_meta_list],
+                           gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list, img=torch.stack([img_l[0] for img_l in img_list]))
+
+        if not self.test_mode:
+            bd = DefaultFormatBundle()
+            results = bd(results, yolo_af=True)
+            return dict(img_metas=results['img_metas'], gt_bboxes=results['gt_bboxes'], gt_labels=results['gt_labels'],
+                 img=results['img'])
+        else:
+            return dict(img_metas=results['img_metas'], img=[results['img']])
+
+
         # if self.return_meta:
         #     meta = self._fetch_meta(seq_dirs[index])
         #     return torch.from_numpy(imgs).permute(0, 3, 1, 2), anno, meta

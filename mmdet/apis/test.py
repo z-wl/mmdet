@@ -25,6 +25,10 @@ def single_gpu_test(model,
     PALETTE = getattr(dataset, 'PALETTE', None)
     prog_bar = mmcv.ProgressBar(len(dataset))
     for i, data in enumerate(data_loader):
+        if len(data['img'][0].shape) > 4:
+            data['img'][0] = data['img'][0].squeeze(0)
+            data['img_metas'] = data['img_metas'][0]
+
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
 

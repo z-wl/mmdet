@@ -44,6 +44,8 @@ class TTFHead(AnchorFreeHead):
                  hm_weight=1.,
                  wh_weight=5.,
                  max_objs=128,
+                 max_per_img=100,
+                 score_thr=0.01,
                  init_cfg=None,
                  train_cfg=None,
                  test_cfg=None,
@@ -68,6 +70,8 @@ class TTFHead(AnchorFreeHead):
         self.wh_weight = wh_weight
         self.max_objs = max_objs
         self.fp16_enabled = False
+        self.max_per_img = max_per_img
+        self.score_thr = score_thr
 
         self.down_ratio = base_down_ratio // 2 ** len(planes)
         self.num_fg = num_classes - 1
@@ -187,7 +191,6 @@ class TTFHead(AnchorFreeHead):
                    pred_heatmap,
                    pred_wh,
                    img_metas,
-                   cfg,
                    rescale=False):
         batch, cat, height, width = pred_heatmap.size()
         pred_heatmap = pred_heatmap.detach().sigmoid_()
@@ -196,7 +199,7 @@ class TTFHead(AnchorFreeHead):
         # perform nms on heatmaps
         heat = simple_nms(pred_heatmap)  # used maxpool to filter the max score
 
-        topk = getattr(cfg, 'max_per_img', 100)
+        topk = self.max_per_img
         # (batch, topk)
         scores, inds, clses, ys, xs = self._topk(heat, topk=topk)
         xs = xs.view(batch, topk, 1) * self.down_ratio
@@ -220,10 +223,10 @@ class TTFHead(AnchorFreeHead):
                             xs + wh[..., [2]], ys + wh[..., [3]]], dim=2)
 
         result_list = []
-        score_thr = getattr(cfg, 'score_thr', 0.01)
+        # score_thr = getattr(cfg, 'score_thr', 0.01)
         for batch_i in range(bboxes.shape[0]):
             scores_per_img = scores[batch_i]
-            scores_keep = (scores_per_img > score_thr).squeeze(-1)
+            scores_keep = (scores_per_img > self.score_thr).squeeze(-1)
 
             scores_per_img = scores_per_img[scores_keep]
             bboxes_per_img = bboxes[batch_i][scores_keep]

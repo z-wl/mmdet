@@ -106,6 +106,7 @@ class ShuffleNetV2(nn.Module):
             print("load param...")
 
     def forward(self, x):
+        # print('here',x )
         x = self.first_conv(x)
         x = self.maxpool(x)
         C1 = self.stage2(x)
